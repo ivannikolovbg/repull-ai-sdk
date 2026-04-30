@@ -1,0 +1,68 @@
+{
+  "name": "@repull/ai-sdk",
+  "version": "0.1.0",
+  "description": "Vercel AI SDK tool bindings for the Repull API — drop-in tools for streamText / generateText / Tool agents.",
+  "license": "MIT",
+  "author": "Repull",
+  "homepage": "https://repull.dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ivannikolovbg/repull-ai-sdk.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ivannikolovbg/repull-ai-sdk/issues"
+  },
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "check:example": "tsc -p tsconfig.example.json --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "repull",
+    "ai-sdk",
+    "vercel",
+    "ai",
+    "tools",
+    "tool-calling",
+    "openai",
+    "anthropic",
+    "vacation-rental",
+    "airbnb",
+    "booking",
+    "channel-manager",
+    "pms"
+  ],
+  "peerDependencies": {
+    "ai": ">=4.0.0 <7.0.0",
+    "zod": "^3.23.8 || ^4.0.0"
+  },
+  "dependencies": {
+    "openapi-fetch": "^0.17.0"
+  },
+  "devDependencies": {
+    "@ai-sdk/openai": "^3.0.55",
+    "@types/node": "^25.6.0",
+    "ai": "^6.0.171",
+    "typescript": "^5.6.3",
+    "zod": "^3.23.8"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
