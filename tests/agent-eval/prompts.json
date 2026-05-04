@@ -1,0 +1,249 @@
+{
+  "$schema": "./prompts.schema.json",
+  "version": 1,
+  "description": "Curated eval prompts for the embedded <RepullAgent /> chat widget shipped via @repull/ai-sdk. Each item is a self-contained property-manager scenario with deterministic acceptance checks. Grow this file over time; never delete IDs (mark deprecated:true instead) so historical baselines remain comparable.",
+  "prompts": [
+    {
+      "id": "rev-001-this-month",
+      "prompt": "What's my total revenue this month?",
+      "expected_intent": "Call getRevenue with this calendar month's range; surface the total + currency breakdown.",
+      "expected_tools": ["getRevenue"],
+      "category": "revenue",
+      "acceptance_checks": ["tool-selection", "no-hallucinated-tools", "helpful-response", "language-match", "data-fidelity"]
+    },
+    {
+      "id": "rev-002-mom-compare",
+      "prompt": "How does this month's revenue compare to last month?",
+      "expected_intent": "Two getRevenue calls (this month, last month). Lead with delta.",
+      "expected_tools": ["getRevenue"],
+      "category": "revenue",
+      "acceptance_checks": ["tool-selection", "no-hallucinated-tools", "helpful-response", "language-match", "data-fidelity"]
+    },
+    {
+      "id": "rev-003-ytd",
+      "prompt": "How much revenue have I booked year-to-date?",
+      "expected_intent": "getRevenue with from=Jan 1 of current year, to=today.",
+      "expected_tools": ["getRevenue"],
+      "category": "revenue",
+      "acceptance_checks": ["tool-selection", "no-hallucinated-tools", "helpful-response", "language-match", "data-fidelity"]
+    },
+    {
+      "id": "rev-004-yoy-april",
+      "prompt": "What was my April revenue this year vs last year?",
+      "expected_intent": "Two getRevenue calls covering April this year and last year.",
+      "expected_tools": ["getRevenue"],
+      "category": "revenue",
+      "acceptance_checks": ["tool-selection", "no-hallucinated-tools", "helpful-response", "language-match", "data-fidelity"]
+    },
+    {
+      "id": "occ-001-this-month",
+      "prompt": "What's my occupancy rate this month?",
+      "expected_intent": "Call getOccupancyRate with this month's range.",
+      "expected_tools": ["getOccupancyRate"],
+      "category": "occupancy",
+      "acceptance_checks": ["tool-selection", "no-hallucinated-tools", "helpful-response", "language-match", "data-fidelity"]
+    },
+    {
+      "id": "occ-002-tonight",
+      "prompt": "What's tonight's occupancy across all my listings?",
+      "expected_intent": "getOccupancyRate with from=today, to=today (or getReservations for tonight).",
+      "expected_tools": [["getOccupancyRate", "getReservations"]],
+      "category": "occupancy",
+      "acceptance_checks": ["tool-selection", "no-hallucinated-tools", "helpful-response", "language-match", "data-fidelity"]
+    },
+    {
+      "id": "occ-003-next-30-days",
+      "prompt": "How does my pacing look for the next 30 days?",
+      "expected_intent": "getOccupancyRate from=today, to=today+30.",
+      "expected_tools": ["getOccupancyRate"],
+      "category": "occupancy",
+      "acceptance_checks": ["tool-selection", "no-hallucinated-tools", "helpful-response", "language-match", "data-fidelity"]
+    },
+    {
+      "id": "occ-004-summer",
+      "prompt": "How booked am I for July and August?",
+      "expected_intent": "getOccupancyRate covering Jul-Aug of the current year.",
+      "expected_tools": ["getOccupancyRate"],
+      "category": "occupancy",
+      "acceptance_checks": ["tool-selection", "no-hallucinated-tools", "helpful-response", "language-match", "data-fidelity"]
+    },
+    {
+      "id": "res-001-arrivals-today",
+      "prompt": "Who's checking in today?",
+      "expected_intent": "getReservations with from=today, to=today, status=confirmed.",
+      "expected_tools": ["getReservations"],
+      "category": "reservations",
+      "acceptance_checks": ["tool-selection", "no-hallucinated-tools", "helpful-response", "language-match", "data-fidelity"]
+    },
+    {
+      "id": "res-002-next-checkout",
+      "prompt": "When does my next checkout happen?",
+      "expected_intent": "getReservations spanning today forward; return the soonest checkout.",
+      "expected_tools": ["getReservations"],
+      "category": "reservations",
+      "acceptance_checks": ["tool-selection", "no-hallucinated-tools", "helpful-response", "language-match", "data-fidelity"]
+    },
+    {
+      "id": "res-003-bookings-this-week",
+      "prompt": "How many bookings do I have this week?",
+      "expected_intent": "getReservations with this week's range.",
+      "expected_tools": ["getReservations"],
+      "category": "reservations",
+      "acceptance_checks": ["tool-selection", "no-hallucinated-tools", "helpful-response", "language-match", "data-fidelity"]
+    },
+    {
+      "id": "res-004-cancellations",
+      "prompt": "Show me cancellations in the last 30 days.",
+      "expected_intent": "getReservations status=cancelled, from=today-30, to=today.",
+      "expected_tools": ["getReservations"],
+      "category": "reservations",
+      "acceptance_checks": ["tool-selection", "no-hallucinated-tools", "helpful-response", "language-match", "data-fidelity"]
+    },
+    {
+      "id": "res-005-pending",
+      "prompt": "Do I have any pending reservation requests?",
+      "expected_intent": "getReservations status=pending over a sensible forward window.",
+      "expected_tools": ["getReservations"],
+      "category": "reservations",
+      "acceptance_checks": ["tool-selection", "no-hallucinated-tools", "helpful-response", "language-match", "data-fidelity"]
+    },
+    {
+      "id": "res-006-listing-bookings",
+      "prompt": "How many bookings does listing 4118 have next month?",
+      "expected_intent": "getReservations with listing_id=4118, range=next month.",
+      "expected_tools": ["getReservations"],
+      "category": "reservations",
+      "acceptance_checks": ["tool-selection", "no-hallucinated-tools", "helpful-response", "language-match", "data-fidelity"]
+    },
+    {
+      "id": "pri-001-tonight-listing",
+      "prompt": "What's the price for listing 4118 tonight?",
+      "expected_intent": "getCurrentPricing listing_id=4118, date=today.",
+      "expected_tools": ["getCurrentPricing"],
+      "category": "pricing",
+      "acceptance_checks": ["tool-selection", "no-hallucinated-tools", "helpful-response", "language-match", "data-fidelity"]
+    },
+    {
+      "id": "pri-002-next-saturday",
+      "prompt": "What is listing 4118 priced at next Saturday?",
+      "expected_intent": "getCurrentPricing listing_id=4118, date=next saturday.",
+      "expected_tools": ["getCurrentPricing"],
+      "category": "pricing",
+      "acceptance_checks": ["tool-selection", "no-hallucinated-tools", "helpful-response", "language-match", "data-fidelity"]
+    },
+    {
+      "id": "pri-003-vs-market",
+      "prompt": "How is my pricing for listing 4118 in Lisbon vs the market this weekend?",
+      "expected_intent": "getCurrentPricing for the listing AND getMarketContext city=Lisbon.",
+      "expected_tools": ["getCurrentPricing", "getMarketContext"],
+      "category": "pricing",
+      "acceptance_checks": ["tool-selection", "no-hallucinated-tools", "helpful-response", "language-match", "data-fidelity"]
+    },
+    {
+      "id": "mkt-001-hot-this-week",
+      "prompt": "Is the Lisbon, Portugal market hot this week?",
+      "expected_intent": "getMarketContext city=Lisbon, country=Portugal. Lead with comp price + occupancy band.",
+      "expected_tools": ["getMarketContext"],
+      "category": "market",
+      "acceptance_checks": ["tool-selection", "no-hallucinated-tools", "helpful-response", "language-match", "data-fidelity"]
+    },
+    {
+      "id": "mkt-002-austin-comp",
+      "prompt": "What are comp prices in Austin, US right now?",
+      "expected_intent": "getMarketContext city=Austin, country=US.",
+      "expected_tools": ["getMarketContext"],
+      "category": "market",
+      "acceptance_checks": ["tool-selection", "no-hallucinated-tools", "helpful-response", "language-match", "data-fidelity"]
+    },
+    {
+      "id": "gst-001-repeat",
+      "prompt": "Which guests have booked with me more than once?",
+      "expected_intent": "searchGuests with a sensible query (e.g. 'repeat' or empty); surface guests with reservation_count > 1.",
+      "expected_tools": ["searchGuests"],
+      "category": "guests",
+      "acceptance_checks": ["tool-selection", "no-hallucinated-tools", "helpful-response", "language-match", "data-fidelity"]
+    },
+    {
+      "id": "gst-002-find-by-name",
+      "prompt": "Look up guest John Smith for me.",
+      "expected_intent": "searchGuests query=John Smith.",
+      "expected_tools": ["searchGuests"],
+      "category": "guests",
+      "acceptance_checks": ["tool-selection", "no-hallucinated-tools", "helpful-response", "language-match", "data-fidelity"]
+    },
+    {
+      "id": "gst-003-find-by-email",
+      "prompt": "Find the guest with email alice@example.com.",
+      "expected_intent": "searchGuests query=alice@example.com.",
+      "expected_tools": ["searchGuests"],
+      "category": "guests",
+      "acceptance_checks": ["tool-selection", "no-hallucinated-tools", "helpful-response", "language-match", "data-fidelity"]
+    },
+    {
+      "id": "cln-001-today",
+      "prompt": "Who's cleaning today?",
+      "expected_intent": "getCleaningRota date=today.",
+      "expected_tools": ["getCleaningRota"],
+      "category": "cleaning",
+      "acceptance_checks": ["tool-selection", "no-hallucinated-tools", "helpful-response", "language-match", "data-fidelity"]
+    },
+    {
+      "id": "cln-002-tomorrow",
+      "prompt": "What turnovers do I have tomorrow?",
+      "expected_intent": "getCleaningRota date=tomorrow.",
+      "expected_tools": ["getCleaningRota"],
+      "category": "cleaning",
+      "acceptance_checks": ["tool-selection", "no-hallucinated-tools", "helpful-response", "language-match", "data-fidelity"]
+    },
+    {
+      "id": "cln-003-rota-status",
+      "prompt": "Are there any cleanings still in progress today?",
+      "expected_intent": "getCleaningRota date=today, then filter on status=in-progress.",
+      "expected_tools": ["getCleaningRota"],
+      "category": "cleaning",
+      "acceptance_checks": ["tool-selection", "no-hallucinated-tools", "helpful-response", "language-match", "data-fidelity"]
+    },
+    {
+      "id": "mix-001-revenue-and-occupancy",
+      "prompt": "Give me a revenue and occupancy snapshot for this month.",
+      "expected_intent": "Call BOTH getRevenue and getOccupancyRate for this month's range.",
+      "expected_tools": ["getRevenue", "getOccupancyRate"],
+      "category": "revenue",
+      "acceptance_checks": ["tool-selection", "no-hallucinated-tools", "helpful-response", "language-match", "data-fidelity"]
+    },
+    {
+      "id": "mix-002-arrivals-and-cleaning",
+      "prompt": "What's coming in today and who's cleaning it?",
+      "expected_intent": "getReservations today + getCleaningRota today.",
+      "expected_tools": ["getReservations", "getCleaningRota"],
+      "category": "reservations",
+      "acceptance_checks": ["tool-selection", "no-hallucinated-tools", "helpful-response", "language-match", "data-fidelity"]
+    },
+    {
+      "id": "mix-003-guest-history",
+      "prompt": "Pull up everything for guest Alice Johnson — past stays and contact info.",
+      "expected_intent": "searchGuests query=Alice Johnson; optionally getReservations to enrich.",
+      "expected_tools": ["searchGuests"],
+      "category": "guests",
+      "acceptance_checks": ["tool-selection", "no-hallucinated-tools", "helpful-response", "language-match", "data-fidelity"]
+    },
+    {
+      "id": "es-001-revenue",
+      "prompt": "¿Cuánto he facturado este mes?",
+      "expected_intent": "Spanish-language revenue query — call getRevenue and reply in Spanish.",
+      "expected_tools": ["getRevenue"],
+      "category": "revenue",
+      "language": "es",
+      "acceptance_checks": ["tool-selection", "no-hallucinated-tools", "helpful-response", "language-match", "data-fidelity"]
+    },
+    {
+      "id": "es-002-arrivals",
+      "prompt": "¿Quién llega hoy a alojarse?",
+      "expected_intent": "Spanish-language arrivals query — call getReservations and reply in Spanish.",
+      "expected_tools": ["getReservations"],
+      "category": "reservations",
+      "language": "es",
+      "acceptance_checks": ["tool-selection", "no-hallucinated-tools", "helpful-response", "language-match", "data-fidelity"]
+    }
+  ]
+}
