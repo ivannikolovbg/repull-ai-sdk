@@ -7,6 +7,12 @@ import {
 } from 'ai';
 import { RepullClient } from '../client.js';
 import { repullAgentTools, type AgentToolSet } from './tools.js';
+import {
+  preflightQuota,
+  recordUsage,
+  newRequestId,
+  type QuotaPreflightResult,
+} from './quota-client.js';
 
 /**
  * Minimal chat message shape accepted by {@link createAgentHandler}. The
@@ -70,6 +76,16 @@ export interface AgentHandlerOptions {
    * subset to restrict scope (e.g. read-only deployments).
    */
   tools?: ToolSet;
+  /**
+   * Custom fetch used for the quota preflight and usage record calls.
+   * Tests inject a mock here so we don't need to monkey-patch
+   * `globalThis.fetch`. Defaults to the global `fetch`.
+   *
+   * NOTE: this does NOT override the AI SDK's model-side fetch — that
+   * is owned by the model provider. This option only affects the
+   * Repull-side quota/usage round-trips.
+   */
+  quotaFetch?: typeof fetch;
 }
 
 const DEFAULT_SYSTEM_PROMPT = `You are Repull Agent — an embedded AI assistant for the property manager who installed this app.
@@ -140,6 +156,33 @@ export function createAgentHandler(opts: AgentHandlerOptions): (req: Request) =>
       : baseSystem;
 
     /**
+     * Preflight: ask Repull whether this customer can issue another
+     * agent turn right now.
+     *
+     * - `allowed`  → proceed to the model.
+     * - `blocked`  → return 429 with the AGENT_QUOTA_EXCEEDED envelope.
+     * - `failOpen` → infra error; let the call through and log. We
+     *   bill ourselves rather than break the customer's app.
+     */
+    const preflight: QuotaPreflightResult = await preflightQuota({
+      baseUrl: client.baseUrl,
+      apiKey: opts.apiKey,
+      fetch: opts.quotaFetch,
+    });
+    if (preflight.kind === 'blocked') {
+      return quotaExceededResponse(preflight);
+    }
+
+    /**
+     * Identifier for the usage record. Generated once per request so a
+     * primary→fallback switch still bills the customer for one turn,
+     * not two. Server-side idempotency on `request_id` collapses any
+     * duplicate POSTs.
+     */
+    const requestId = newRequestId();
+    const startedAt = Date.now();
+
+    /**
      * Probe the model by reading the first chunk of `textStream`. If it
      * errors before yielding anything we know the model is dead and can
      * fall back; if it yields, we re-stream the buffered chunk + the rest
@@ -149,14 +192,47 @@ export function createAgentHandler(opts: AgentHandlerOptions): (req: Request) =>
      * The AI SDK's `streamText` swallows errors into `onError` by default
      * (just logs them and ends the stream), so we must capture errors
      * explicitly via the callback.
+     *
+     * `usageBox` is populated by `streamText`'s `onFinish` callback once
+     * the model finishes streaming. We POST `/v1/agent/usage` from
+     * `wrappedStreamResponse` after the bytes have flushed to the
+     * customer.
      */
+    interface UsageBox {
+      tokensIn: number;
+      tokensOut: number;
+      modelLabel: string;
+      isFallback: boolean;
+      /**
+       * Resolved usage promise from `streamText`. Populated synchronously
+       * by `tryStream`; the stream consumer awaits this AFTER draining
+       * the iterator so we always have a final token count.
+       */
+      totalUsage: PromiseLike<{ inputTokens?: number; outputTokens?: number }> | null;
+    }
+
     const tryStream = async (
       model: LanguageModel,
+      modelLabel: string,
+      isFallback: boolean,
     ): Promise<
-      | { ok: true; chunks: string[]; iter: AsyncIterator<string>; errBox: { err: unknown } }
+      | {
+          ok: true;
+          chunks: string[];
+          iter: AsyncIterator<string>;
+          errBox: { err: unknown };
+          usageBox: UsageBox;
+        }
       | { ok: false; err: unknown }
     > => {
       const errBox: { err: unknown } = { err: null };
+      const usageBox: UsageBox = {
+        tokensIn: 0,
+        tokensOut: 0,
+        modelLabel,
+        isFallback,
+        totalUsage: null,
+      };
       const result = streamText({
         model,
         tools,
@@ -167,6 +243,20 @@ export function createAgentHandler(opts: AgentHandlerOptions): (req: Request) =>
           errBox.err = error;
         },
       });
+      // `totalUsage` is a Promise that resolves once the stream finalizes.
+      // Capture it eagerly so the post-stream usage record can `await` it
+      // without an extra round-trip through the AI SDK internals.
+      //
+      // Attach a no-op `.catch()` so a rejection (e.g. model outage that
+      // surfaces as `AI_NoOutputGeneratedError`) doesn't bubble into the
+      // process as an unhandled rejection. We still await this from
+      // `fireUsageRecord` and handle the rejection there.
+      const totalUsagePromise = result.totalUsage as unknown as PromiseLike<{
+        inputTokens?: number;
+        outputTokens?: number;
+      }>;
+      Promise.resolve(totalUsagePromise).catch(() => undefined);
+      usageBox.totalUsage = totalUsagePromise;
       try {
         const iter = result.textStream[Symbol.asyncIterator]();
         const next = await iter.next();
@@ -174,26 +264,82 @@ export function createAgentHandler(opts: AgentHandlerOptions): (req: Request) =>
         if (next.done) {
           // Stream ended without yielding — could mean tool-only run or empty.
           // Treat as success; the consumer iterator will handle re-checking errBox.
-          return { ok: true, chunks: [], iter, errBox };
+          return { ok: true, chunks: [], iter, errBox, usageBox };
         }
-        return { ok: true, chunks: [next.value], iter, errBox };
+        return { ok: true, chunks: [next.value], iter, errBox, usageBox };
       } catch (err) {
         return { ok: false, err };
       }
     };
 
-    const primary = await tryStream(primaryModel);
+    /**
+     * Fire-and-forget usage record. Wrapped so the closure captures
+     * the request id + start time + the chosen model. The actual POST
+     * is best-effort and errors are swallowed inside `recordUsage`.
+     *
+     * We `await usageBox.totalUsage` first so token counts are final
+     * before the POST. The promise is resolved by `streamText` once
+     * the stream settles — by the time we hit this code path the
+     * client has already received the full text, so there's no
+     * customer-perceptible latency cost.
+     */
+    const fireUsageRecord = async (usageBox: UsageBox): Promise<void> => {
+      let tokensIn = usageBox.tokensIn;
+      let tokensOut = usageBox.tokensOut;
+      if (usageBox.totalUsage) {
+        try {
+          const u = await usageBox.totalUsage;
+          if (typeof u?.inputTokens === 'number') tokensIn = u.inputTokens;
+          if (typeof u?.outputTokens === 'number') tokensOut = u.outputTokens;
+        } catch {
+          // Usage promise rejected — fall back to the eagerly-captured
+          // values (likely zeros). Better to bill 0 than crash the
+          // record path.
+        }
+      }
+      await recordUsage(
+        {
+          request_id: requestId,
+          tokens_in: tokensIn,
+          tokens_out: tokensOut,
+          model: usageBox.modelLabel,
+          latency_ms: Date.now() - startedAt,
+          fallback: usageBox.isFallback,
+        },
+        {
+          baseUrl: client.baseUrl,
+          apiKey: opts.apiKey,
+          fetch: opts.quotaFetch,
+        },
+      );
+    };
+
+    const primaryLabel = describeModel(primaryModel, 'primary');
+    const primary = await tryStream(primaryModel, primaryLabel, false);
     if (primary.ok) {
-      return wrappedStreamResponse(primary.chunks, primary.iter, primary.errBox);
+      return wrappedStreamResponse(
+        primary.chunks,
+        primary.iter,
+        primary.errBox,
+        {},
+        () => fireUsageRecord(primary.usageBox),
+      );
     }
     if (!fallbackModel) {
-      return jsonError(502, primary.err instanceof Error ? primary.err.message : 'Primary model failed.');
+      return jsonError(502, primary.err instanceof Error ? primary.err.message : 'Repull AI primary model failed.');
     }
-    const fb = await tryStream(fallbackModel);
+    const fallbackLabel = describeModel(fallbackModel, 'fallback');
+    const fb = await tryStream(fallbackModel, fallbackLabel, true);
     if (fb.ok) {
-      return wrappedStreamResponse(fb.chunks, fb.iter, fb.errBox, { 'x-repull-agent-fallback': '1' });
+      return wrappedStreamResponse(
+        fb.chunks,
+        fb.iter,
+        fb.errBox,
+        { 'x-repull-agent-fallback': '1' },
+        () => fireUsageRecord(fb.usageBox),
+      );
     }
-    return jsonError(502, fb.err instanceof Error ? fb.err.message : 'Both models failed.');
+    return jsonError(502, fb.err instanceof Error ? fb.err.message : 'Repull AI is temporarily unavailable.');
   };
 }
 
@@ -201,14 +347,29 @@ export function createAgentHandler(opts: AgentHandlerOptions): (req: Request) =>
  * Stream a buffered head + remaining iterator to the client as plain text.
  * We can't use `result.toTextStreamResponse()` directly because we already
  * consumed the first chunk during the probe-for-fallback step.
+ *
+ * `onAfterStream` runs once the stream closes (success or stream-side
+ * error). It's used to fire-and-forget the `/v1/agent/usage` POST so
+ * the customer never waits on Repull infra to receive their text.
  */
 function wrappedStreamResponse(
   buffered: string[],
   iter: AsyncIterator<string>,
   errBox: { err: unknown },
   extraHeaders: Record<string, string> = {},
+  onAfterStream?: () => void,
 ): Response {
   const encoder = new TextEncoder();
+  let recorded = false;
+  const fire = () => {
+    if (recorded) return;
+    recorded = true;
+    try {
+      onAfterStream?.();
+    } catch {
+      // Recording is best-effort — never bubble.
+    }
+  };
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       try {
@@ -220,13 +381,20 @@ function wrappedStreamResponse(
           controller.enqueue(encoder.encode(n.value));
         }
         if (errBox.err) {
+          fire();
           controller.error(errBox.err);
           return;
         }
+        fire();
         controller.close();
       } catch (err) {
+        fire();
         controller.error(err);
       }
+    },
+    cancel() {
+      // Customer aborted the SSE — still bill for tokens already consumed.
+      fire();
     },
   });
   return new Response(stream, {
@@ -245,6 +413,57 @@ function jsonError(status: number, message: string): Response {
     status,
     headers: { 'Content-Type': 'application/json' },
   });
+}
+
+/**
+ * Build the AGENT_QUOTA_EXCEEDED 429 response surfaced when the quota
+ * preflight reports a hard cap-hit. Mirrors the dominator route's
+ * `buildQuotaExceededResponse` shape so SDK + API are interchangeable
+ * for callers that read the envelope.
+ *
+ * NOTE: copy is brand-neutral on purpose. We never expose model names
+ * (Kimi / Moonshot / Claude) in customer-facing errors.
+ */
+function quotaExceededResponse(
+  preflight: { snapshot: import('./quota-client.js').QuotaSnapshot | null; retryAfterSec?: number },
+): Response {
+  const resetAt = preflight.snapshot?.resetAt;
+  const retryAfter =
+    preflight.retryAfterSec ??
+    (resetAt
+      ? Math.max(1, Math.ceil((new Date(resetAt).getTime() - Date.now()) / 1000))
+      : 60);
+  return new Response(
+    JSON.stringify({
+      error: {
+        code: 'AGENT_QUOTA_EXCEEDED',
+        message: 'Daily Repull AI quota reached',
+        fix: 'Upgrade your Repull plan or wait until quota resets',
+        docs_url: 'https://repull.dev/docs/studio/pricing',
+        resetAt: resetAt ?? null,
+      },
+    }),
+    {
+      status: 429,
+      headers: {
+        'Content-Type': 'application/json',
+        'Retry-After': String(retryAfter),
+      },
+    },
+  );
+}
+
+/**
+ * Best-effort label for the model in usage records. The AI SDK
+ * accepts both string slugs (e.g. `'moonshotai/kimi-k2'`) and fully
+ * constructed `LanguageModel` instances; we read `.modelId` when
+ * available and fall back to the role.
+ */
+function describeModel(model: LanguageModel, role: 'primary' | 'fallback'): string {
+  if (typeof model === 'string') return model;
+  const m = model as unknown as { modelId?: string; provider?: string };
+  if (m && typeof m.modelId === 'string') return m.modelId;
+  return role;
 }
 
 export { repullAgentTools } from './tools.js';

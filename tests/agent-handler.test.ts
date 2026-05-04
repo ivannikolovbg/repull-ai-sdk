@@ -110,12 +110,14 @@ describe('createAgentHandler', () => {
       const text = await res.text();
       expect(text).toContain('2 confirmed bookings');
 
-      // Tool dispatch should have hit the Repull API once with the Bearer token.
-      expect((fetchImpl as unknown as { mock: { calls: unknown[][] } }).mock.calls.length).toBeGreaterThanOrEqual(1);
-      const firstCall = (fetchImpl as unknown as { mock: { calls: unknown[][] } }).mock.calls[0]!;
-      const url = String(firstCall[0]);
-      const init = firstCall[1] as RequestInit;
-      expect(url).toContain('/v1/reservations');
+      // Tool dispatch should have hit the Repull API at least once with the Bearer token.
+      // The handler also fires a quota preflight + usage record around the model call,
+      // so the reservations call may not be the first one in the log — search for it.
+      const calls = (fetchImpl as unknown as { mock: { calls: unknown[][] } }).mock.calls;
+      expect(calls.length).toBeGreaterThanOrEqual(1);
+      const reservationsCall = calls.find((c) => String(c[0]).includes('/v1/reservations'));
+      expect(reservationsCall, 'expected a fetch to /v1/reservations from the tool dispatch').toBeTruthy();
+      const init = reservationsCall![1] as RequestInit;
       const auth = (init.headers as Record<string, string>).Authorization;
       expect(auth).toBe('Bearer sk_test_customer_a');
     } finally {
