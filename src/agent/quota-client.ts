@@ -63,6 +63,13 @@ export interface UsageRecordInput {
   model: string;
   latency_ms?: number;
   fallback?: boolean;
+  /**
+   * Optional Studio project id. When set, the usage row is attributed
+   * to a specific project so the dashboard's per-project rollup
+   * (USAGE-DASHBOARD top-projects + PROJECT-ANALYTICS agent_calls
+   * metric) can count it. Off-Studio SDK installs leave this unset.
+   */
+  project_id?: number;
 }
 
 /**

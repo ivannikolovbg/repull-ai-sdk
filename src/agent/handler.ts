@@ -86,6 +86,22 @@ export interface AgentHandlerOptions {
    * Repull-side quota/usage round-trips.
    */
   quotaFetch?: typeof fetch;
+  /**
+   * Studio project id. Forwarded to `/v1/agent/usage` as `project_id`
+   * so per-project agent-call attribution works in the dashboard
+   * (USAGE-DASHBOARD's top-projects ranking and PROJECT-ANALYTICS'
+   * per-project agent_calls metric).
+   *
+   * Studio runtimes inject `REPULL_PROJECT_ID` at deploy time — when
+   * the option is omitted, the handler reads that env var as a
+   * fallback so customers don't need to pass it explicitly. Customers
+   * who run the SDK off-Studio (no project) leave both unset; usage
+   * rows persist with `project_id = NULL` and don't break.
+   *
+   * Accepts either a number or a numeric string (the env var is
+   * always a string). Non-numeric values are silently dropped.
+   */
+  projectId?: number | string;
 }
 
 const DEFAULT_SYSTEM_PROMPT = `You are Repull Agent — an embedded AI assistant for the property manager who installed this app.
@@ -134,6 +150,12 @@ export function createAgentHandler(opts: AgentHandlerOptions): (req: Request) =>
   const fallbackModel = opts.fallbackModel === null ? null : (opts.fallbackModel ?? DEFAULT_FALLBACK_MODEL);
   const maxSteps = opts.maxSteps ?? 8;
   const baseSystem = opts.systemPrompt ?? DEFAULT_SYSTEM_PROMPT;
+  // Resolve `projectId` once at handler-build time — env var fallback
+  // mirrors the studio runtime injection (`REPULL_PROJECT_ID`). We
+  // coerce string→number eagerly so each request doesn't re-parse;
+  // any non-numeric value resolves to `undefined` and the row
+  // persists with `project_id = NULL`.
+  const projectId = resolveProjectId(opts.projectId);
 
   return async function handler(req: Request): Promise<Response> {
     let body: AgentChatRequest;
@@ -305,6 +327,9 @@ export function createAgentHandler(opts: AgentHandlerOptions): (req: Request) =>
           model: usageBox.modelLabel,
           latency_ms: Date.now() - startedAt,
           fallback: usageBox.isFallback,
+          // `project_id` is omitted from the body (and the row stays
+          // unattributed) when the SDK is mounted off-Studio.
+          ...(projectId !== undefined ? { project_id: projectId } : {}),
         },
         {
           baseUrl: client.baseUrl,
@@ -451,6 +476,34 @@ function quotaExceededResponse(
       },
     },
   );
+}
+
+/**
+ * Resolve the Studio project id that gets stamped on every usage row
+ * via `agent_usage_log.project_id`.
+ *
+ * Resolution order:
+ *  1. Explicit `opts.projectId` from the handler caller (number or
+ *     numeric string).
+ *  2. `REPULL_PROJECT_ID` env var injected by the Studio runtime at
+ *     deploy time.
+ *  3. `undefined` — usage rows persist with `project_id = NULL` and
+ *     don't show up in the per-project rollup. That's the correct
+ *     behavior for off-Studio SDK installs.
+ *
+ * Non-numeric / non-positive / non-integer values resolve to
+ * `undefined`. We never throw — a malformed env var must not break
+ * the customer's chat.
+ */
+function resolveProjectId(explicit: number | string | undefined): number | undefined {
+  const candidate =
+    explicit !== undefined
+      ? explicit
+      : (typeof process !== 'undefined' ? process.env?.REPULL_PROJECT_ID : undefined);
+  if (candidate === undefined || candidate === null || candidate === '') return undefined;
+  const n = typeof candidate === 'number' ? candidate : Number(candidate);
+  if (!Number.isFinite(n) || !Number.isInteger(n) || n <= 0) return undefined;
+  return n;
 }
 
 /**
