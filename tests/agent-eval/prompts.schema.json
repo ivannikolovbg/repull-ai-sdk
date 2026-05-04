@@ -1,0 +1,87 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "RepullAgent Eval Prompts",
+  "type": "object",
+  "required": ["version", "prompts"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "version": { "type": "integer", "minimum": 1 },
+    "description": { "type": "string" },
+    "prompts": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/prompt" }
+    }
+  },
+  "definitions": {
+    "tool": {
+      "enum": [
+        "getReservations",
+        "getCurrentPricing",
+        "getMarketContext",
+        "getRevenue",
+        "getOccupancyRate",
+        "searchGuests",
+        "getCleaningRota"
+      ]
+    },
+    "toolRequirement": {
+      "oneOf": [
+        { "$ref": "#/definitions/tool" },
+        {
+          "type": "array",
+          "items": { "$ref": "#/definitions/tool" },
+          "minItems": 1
+        }
+      ]
+    },
+    "category": {
+      "enum": [
+        "revenue",
+        "occupancy",
+        "reservations",
+        "pricing",
+        "guests",
+        "cleaning",
+        "market"
+      ]
+    },
+    "checkName": {
+      "enum": [
+        "tool-selection",
+        "no-hallucinated-tools",
+        "helpful-response",
+        "language-match",
+        "data-fidelity"
+      ]
+    },
+    "prompt": {
+      "type": "object",
+      "required": [
+        "id",
+        "prompt",
+        "expected_intent",
+        "expected_tools",
+        "category",
+        "acceptance_checks"
+      ],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+        "prompt": { "type": "string", "minLength": 1 },
+        "expected_intent": { "type": "string", "minLength": 1 },
+        "expected_tools": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/toolRequirement" }
+        },
+        "category": { "$ref": "#/definitions/category" },
+        "language": { "enum": ["en", "es"] },
+        "acceptance_checks": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/checkName" },
+          "minItems": 1
+        },
+        "deprecated": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    }
+  }
+}
