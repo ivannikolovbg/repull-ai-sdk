@@ -1,7 +1,7 @@
 {
   "name": "@repull/ai-sdk",
-  "version": "0.1.0",
-  "description": "Vercel AI SDK tool bindings for the Repull API — drop-in tools for streamText / generateText / Tool agents.",
+  "version": "0.2.1",
+  "description": "Vercel AI SDK tool bindings + embedded <RepullAgent /> chat widget for the Repull API.",
   "license": "MIT",
   "author": "Repull",
   "homepage": "https://repull.dev",
@@ -20,6 +20,18 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./agent": {
+      "types": "./dist/agent/index.d.ts",
+      "import": "./dist/agent/index.js"
+    },
+    "./react": {
+      "types": "./dist/react/index.d.ts",
+      "import": "./dist/react/index.js"
+    },
+    "./headless": {
+      "types": "./dist/headless/index.d.ts",
+      "import": "./dist/headless/index.js"
     }
   },
   "files": [
@@ -31,6 +43,8 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "check:example": "tsc -p tsconfig.example.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "prepublishOnly": "npm run build"
   },
   "keywords": [
@@ -42,6 +56,9 @@
     "tool-calling",
     "openai",
     "anthropic",
+    "kimi",
+    "agent",
+    "chat-widget",
     "vacation-rental",
     "airbnb",
     "booking",
@@ -50,16 +67,29 @@
   ],
   "peerDependencies": {
     "ai": ">=4.0.0 <7.0.0",
+    "react": ">=18.0.0 <20.0.0",
     "zod": "^3.23.8 || ^4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
   },
   "dependencies": {
     "openapi-fetch": "^0.17.0"
   },
   "devDependencies": {
     "@ai-sdk/openai": "^3.0.55",
+    "@testing-library/react": "^16.1.0",
     "@types/node": "^25.6.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
     "ai": "^6.0.171",
+    "jsdom": "^26.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
     "typescript": "^5.6.3",
+    "vitest": "^3.0.0",
     "zod": "^3.23.8"
   },
   "engines": {

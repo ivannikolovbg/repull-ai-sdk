@@ -109,6 +109,72 @@ Failed API calls don't throw out of `execute` — they return `{ ok: false, erro
 import { RepullApiError } from '@repull/ai-sdk';
 ```
 
+## Embedded `<RepullAgent />` chat widget
+
+The SDK also ships a drop-in chat widget that gives the property manager an AI agent inside their own deployed app — full context of THEIR reservations, calendar, pricing, revenue, occupancy, guest CRM, and cleaning rota. The widget posts to a customer-side `/api/agent/chat` route which holds the customer-scoped `REPULL_API_KEY`. The agent in customer A's app can never see customer B's data.
+
+### Server route (Next.js, Hono, anywhere with `Request -> Response`)
+
+```ts
+// app/api/agent/chat/route.ts
+import { createAgentHandler } from '@repull/ai-sdk/agent';
+
+export const POST = createAgentHandler({
+  apiKey: process.env.REPULL_API_KEY!,
+  // optional: override the model — defaults to Kimi K2 with Claude Sonnet 4.5 fallback
+  // model: openai('gpt-4o'),
+});
+```
+
+### React widget
+
+```tsx
+import { RepullAgent } from '@repull/ai-sdk/react';
+
+export default function Layout({ children }: { children: React.ReactNode }) {
+  return (
+    <>
+      {children}
+      <RepullAgent
+        position="bottom-right"
+        title="Repull Agent"
+        suggestedPrompts={[
+          'How many bookings this week?',
+          'Why is my pricing low for Saturday?',
+          'Email me a daily summary',
+        ]}
+      />
+    </>
+  );
+}
+```
+
+### Vanilla JS (any framework)
+
+```ts
+import { RepullAgent } from '@repull/ai-sdk/headless';
+
+const agent = RepullAgent.init({ position: 'bottom-right' });
+agent.open();
+agent.send('How many bookings this week?');
+```
+
+### Agent tools
+
+The handler bundles seven PM-flavored tools out of the box:
+
+| Tool | Purpose |
+|---|---|
+| `getReservations({ from, to, status?, listing_id? })` | Reservations by check-in date range, optional filters. |
+| `getCurrentPricing({ listing_id, date })` | Calendar-day price + availability for a listing. |
+| `getMarketContext({ city, country })` | Atlas comp data — avg price, occupancy band, sample size. |
+| `getRevenue({ from, to })` | Booked revenue by currency + channel. |
+| `getOccupancyRate({ from, to })` | Booked / available nights, per-listing breakdown. |
+| `searchGuests({ query })` | Free-text guest CRM search. |
+| `getCleaningRota({ date })` | Cleaning rota for a single date. |
+
+Pass `tools: { ... }` to `createAgentHandler` to override or restrict the set.
+
 ## License
 
 MIT — see [LICENSE](./LICENSE). Use it, fork it, ship products on it. The Repull API itself is gated by your API key; this SDK is a thin, free wrapper.
