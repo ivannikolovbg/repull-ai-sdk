@@ -1,5 +1,76 @@
 # Changelog
 
+## 0.2.4 — 2026-09-11
+
+### Removed
+
+- **`projectId` / `REPULL_PROJECT_ID` attribution is gone with the rest of the
+  quota-and-usage client.** `0.2.3` removed `src/agent/quota-client.ts`
+  because `GET /v1/agent/quota` and `POST /v1/agent/usage` both 404 against
+  the live API. A separate change had meanwhile added a `projectId` option
+  that tagged the `/v1/agent/usage` body with `project_id` for the
+  dashboard's per-project rollup — it rides on the same dead endpoint, so it
+  never recorded anything in production, and it is removed here along with
+  its test. Breaking for anyone passing `projectId` or setting
+  `REPULL_PROJECT_ID`; no working integration is affected, because the
+  endpoint the value was sent to does not exist.
+
+  Re-verified at the time of writing:
+
+  ```
+  GET  https://api.repull.dev/v1/agent/quota  -> 404
+  POST https://api.repull.dev/v1/agent/usage  -> 404
+  GET  https://api.repull.dev/v1/health       -> 200
+  ```
+
+  If per-project agent attribution is still wanted, the endpoint has to ship
+  on the API first; the guard will then stop rejecting the path.
+
+### Changed
+
+- **Spec-freshness guard now compares schema shapes, not just endpoints.**
+  Nineteen schema corrections shipped on the live API — ten fields renamed
+  from `snake_case` to `camelCase` (`data_freshness` → `dataFreshness`,
+  `last_synced_at` → `lastSyncedAt`, `fix_url` → `fixUrl`, `next_cursor` →
+  `nextCursor`, `has_more` → `hasMore`, `monthly_requests` →
+  `monthlyRequests`, `daily_ai_requests` → `dailyAiRequests`, `daily_ai` →
+  `dailyAi`, `dynamic_pricing_listings` → `dynamicPricingListings`,
+  `resets_at` → `resetsAt`), three list responses that are bare arrays
+  rather than `{data, pagination}` objects, four ids that are strings
+  rather than integers, and `latitude`/`longitude` likewise — and not one
+  path or method moved, so the old endpoint-only check stayed green
+  through all of it. The guard now fingerprints every property name,
+  type and `required` entry as well.
+
+  No runtime change in this package: it is hand-written, passes API
+  responses through to the model untouched, and declares no types for any
+  of the corrected fields. Verified by grep — none of the ten renamed
+  field names, the three list-response wrappers, or `latitude`/`longitude`
+  appear anywhere in `src/`.
+
+## 0.2.3 — 2026-09-11
+
+### Removed
+
+- **Spec-drift cleanup: six dead-endpoint capabilities removed.** Verified
+  against the live 124-path `https://api.repull.dev/openapi.json` — none
+  of the following paths (or any equivalent under another name) exist on
+  the production API; every call returned `404`:
+  - `getMarketContext` tool (`GET /v1/market/context`)
+  - `getRevenue` tool (`GET /v1/analytics/revenue`)
+  - `getOccupancyRate` tool (`GET /v1/analytics/occupancy`)
+  - `getCleaningRota` tool (`GET /v1/cleaning/rota`)
+  - Quota preflight (`GET /v1/agent/quota`)
+  - Usage reporting (`POST /v1/agent/usage`)
+
+  `repullAgentTools()` now returns three tools instead of seven:
+  `getReservations`, `getCurrentPricing`, `searchGuests`. `src/agent/quota-client.ts`
+  is deleted, and `createAgentHandler` no longer preflights quota or
+  reports usage — the `quotaFetch` option is gone along with it. This
+  is a **breaking change** for any caller passing `quotaFetch` or relying
+  on the `AGENT_QUOTA_EXCEEDED` 429 envelope; both never worked against
+  production, so no working integration is affected.
+
 ## 0.2.1 — 2026-05-04
 
 ### Added

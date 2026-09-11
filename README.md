@@ -111,7 +111,7 @@ import { RepullApiError } from '@repull/ai-sdk';
 
 ## Embedded `<RepullAgent />` chat widget
 
-The SDK also ships a drop-in chat widget that gives the property manager an AI agent inside their own deployed app — full context of THEIR reservations, calendar, pricing, revenue, occupancy, guest CRM, and cleaning rota. The widget posts to a customer-side `/api/agent/chat` route which holds the customer-scoped `REPULL_API_KEY`. The agent in customer A's app can never see customer B's data.
+The SDK also ships a drop-in chat widget that gives the property manager an AI agent inside their own deployed app — full context of THEIR reservations, calendar, pricing, and guest CRM. The widget posts to a customer-side `/api/agent/chat` route which holds the customer-scoped `REPULL_API_KEY`. The agent in customer A's app can never see customer B's data.
 
 ### Server route (Next.js, Hono, anywhere with `Request -> Response`)
 
@@ -161,17 +161,13 @@ agent.send('How many bookings this week?');
 
 ### Agent tools
 
-The handler bundles seven PM-flavored tools out of the box:
+The handler bundles three PM-flavored tools out of the box:
 
 | Tool | Purpose |
 |---|---|
 | `getReservations({ from, to, status?, listing_id? })` | Reservations by check-in date range, optional filters. |
 | `getCurrentPricing({ listing_id, date })` | Calendar-day price + availability for a listing. |
-| `getMarketContext({ city, country })` | Atlas comp data — avg price, occupancy band, sample size. |
-| `getRevenue({ from, to })` | Booked revenue by currency + channel. |
-| `getOccupancyRate({ from, to })` | Booked / available nights, per-listing breakdown. |
 | `searchGuests({ query })` | Free-text guest CRM search. |
-| `getCleaningRota({ date })` | Cleaning rota for a single date. |
 
 Pass `tools: { ... }` to `createAgentHandler` to override or restrict the set.
 

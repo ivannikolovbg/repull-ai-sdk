@@ -62,41 +62,15 @@ describe('repullAgentTools', () => {
     expect(url.searchParams.get('date')).toBe('2026-05-09');
   });
 
-  it('getMarketContext hits /v1/market/context with city + country', async () => {
-    const { client, calls } = makeClient({ avgPrice: 220 });
-    const tools = repullAgentTools(client);
-    const exec = tools.getMarketContext.execute as (i: unknown, o?: unknown) => Promise<unknown>;
-    await exec({ city: 'Lisbon', country: 'PT' }, {});
-    const url = new URL(calls[0]!.url);
-    expect(url.pathname).toBe('/v1/market/context');
-    expect(url.searchParams.get('city')).toBe('Lisbon');
-    expect(url.searchParams.get('country')).toBe('PT');
-  });
-
-  it('getRevenue, getOccupancyRate, searchGuests, getCleaningRota route correctly', async () => {
+  it('searchGuests dispatches GET /v1/guests with query', async () => {
     const { client, calls } = makeClient({});
     const tools = repullAgentTools(client);
-    await (tools.getRevenue.execute as (i: unknown, o?: unknown) => Promise<unknown>)(
-      { from: '2026-04-01', to: '2026-04-30' },
-      {},
-    );
-    await (tools.getOccupancyRate.execute as (i: unknown, o?: unknown) => Promise<unknown>)(
-      { from: '2026-04-01', to: '2026-04-30' },
-      {},
-    );
     await (tools.searchGuests.execute as (i: unknown, o?: unknown) => Promise<unknown>)(
       { query: 'Maria' },
       {},
     );
-    await (tools.getCleaningRota.execute as (i: unknown, o?: unknown) => Promise<unknown>)(
-      { date: '2026-05-04' },
-      {},
-    );
-    expect(new URL(calls[0]!.url).pathname).toBe('/v1/analytics/revenue');
-    expect(new URL(calls[1]!.url).pathname).toBe('/v1/analytics/occupancy');
-    expect(new URL(calls[2]!.url).pathname).toBe('/v1/guests');
-    expect(new URL(calls[2]!.url).searchParams.get('q')).toBe('Maria');
-    expect(new URL(calls[3]!.url).pathname).toBe('/v1/cleaning/rota');
+    expect(new URL(calls[0]!.url).pathname).toBe('/v1/guests');
+    expect(new URL(calls[0]!.url).searchParams.get('q')).toBe('Maria');
   });
 
   it('returns { ok: false, error } envelope on non-2xx', async () => {
