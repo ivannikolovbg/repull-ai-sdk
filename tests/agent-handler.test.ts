@@ -111,8 +111,6 @@ describe('createAgentHandler', () => {
       expect(text).toContain('2 confirmed bookings');
 
       // Tool dispatch should have hit the Repull API at least once with the Bearer token.
-      // The handler also fires a quota preflight + usage record around the model call,
-      // so the reservations call may not be the first one in the log — search for it.
       const calls = (fetchImpl as unknown as { mock: { calls: unknown[][] } }).mock.calls;
       expect(calls.length).toBeGreaterThanOrEqual(1);
       const reservationsCall = calls.find((c) => String(c[0]).includes('/v1/reservations'));

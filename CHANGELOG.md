@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.2.3 — 2026-09-11
+
+### Removed
+
+- **Spec-drift cleanup: six dead-endpoint capabilities removed.** Verified
+  against the live 124-path `https://api.repull.dev/openapi.json` — none
+  of the following paths (or any equivalent under another name) exist on
+  the production API; every call returned `404`:
+  - `getMarketContext` tool (`GET /v1/market/context`)
+  - `getRevenue` tool (`GET /v1/analytics/revenue`)
+  - `getOccupancyRate` tool (`GET /v1/analytics/occupancy`)
+  - `getCleaningRota` tool (`GET /v1/cleaning/rota`)
+  - Quota preflight (`GET /v1/agent/quota`)
+  - Usage reporting (`POST /v1/agent/usage`)
+
+  `repullAgentTools()` now returns three tools instead of seven:
+  `getReservations`, `getCurrentPricing`, `searchGuests`. `src/agent/quota-client.ts`
+  is deleted, and `createAgentHandler` no longer preflights quota or
+  reports usage — the `quotaFetch` option is gone along with it. This
+  is a **breaking change** for any caller passing `quotaFetch` or relying
+  on the `AGENT_QUOTA_EXCEEDED` 429 envelope; both never worked against
+  production, so no working integration is affected.
+
 ## 0.2.1 — 2026-05-04
 
 ### Added

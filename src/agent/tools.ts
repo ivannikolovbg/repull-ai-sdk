@@ -47,24 +47,6 @@ const GetCurrentPricingInput = z.object({
   date: IsoDate.describe('Calendar date to fetch nightly price for, ISO YYYY-MM-DD.'),
 });
 
-const GetMarketContextInput = z.object({
-  city: z.string().min(1).describe('City name for the comp market (e.g. "Lisbon", "Austin").'),
-  country: z
-    .string()
-    .min(2)
-    .describe('Country name or ISO-3166 alpha-2 code (e.g. "Portugal" or "PT").'),
-});
-
-const GetRevenueInput = z.object({
-  from: IsoDate.describe('Range start (inclusive), ISO YYYY-MM-DD.'),
-  to: IsoDate.describe('Range end (inclusive), ISO YYYY-MM-DD.'),
-});
-
-const GetOccupancyRateInput = z.object({
-  from: IsoDate.describe('Range start (inclusive), ISO YYYY-MM-DD.'),
-  to: IsoDate.describe('Range end (inclusive), ISO YYYY-MM-DD.'),
-});
-
 const SearchGuestsInput = z.object({
   query: z
     .string()
@@ -73,30 +55,23 @@ const SearchGuestsInput = z.object({
   limit: z.number().int().min(1).max(50).optional().describe('Max results (1-50).'),
 });
 
-const GetCleaningRotaInput = z.object({
-  date: IsoDate.describe('Calendar date to fetch the cleaning rota for, ISO YYYY-MM-DD.'),
-});
-
 /* ─────────────────────────── tool factory ─────────────────────────── */
 
 export interface AgentToolSet {
   getReservations: Tool;
   getCurrentPricing: Tool;
-  getMarketContext: Tool;
-  getRevenue: Tool;
-  getOccupancyRate: Tool;
   searchGuests: Tool;
-  getCleaningRota: Tool;
 }
 
 /**
  * Build the embedded-agent tool set bound to a {@link RepullClient}.
  *
  * These tools are intentionally PM-flavored aggregations — designed for
- * a chat widget the property manager hits every day ("revenue this
- * month?", "why is Saturday cheap?", "who's cleaning today?"). They map
- * to high-level Repull API endpoints; in production the customer's
- * deployed Studio app brokers them with the customer-scoped API key.
+ * a chat widget the property manager hits every day ("bookings this
+ * week?", "what's listing 4118 priced at tonight?", "look up this
+ * guest"). They map to high-level Repull API endpoints; in production
+ * the customer's deployed Studio app brokers them with the
+ * customer-scoped API key.
  *
  * The same `AgentToolResult<T>` envelope used in {@link repullTools}
  * applies — failures return `{ ok: false, error }` so the model can
@@ -148,59 +123,6 @@ export function repullAgentTools(client: RepullClient): AgentToolSet {
       },
     }),
 
-    getMarketContext: tool({
-      description:
-        'Fetch Atlas comp data for a market — average comp price, occupancy band, top-quartile ' +
-        'price, and sample size. Use this when the host asks "how is my pricing vs the market?" ' +
-        'or "is the market hot this week?". Read-only.',
-      inputSchema: GetMarketContextInput,
-      execute: async (input): Promise<AgentToolResult<unknown>> => {
-        try {
-          const data = await client.request<unknown>('GET', '/v1/market/context', {
-            query: { city: input.city, country: input.country },
-          });
-          return { ok: true, data };
-        } catch (err) {
-          return toErrorResult(err);
-        }
-      },
-    }),
-
-    getRevenue: tool({
-      description:
-        'Fetch booked revenue (sum of confirmed-reservation totals) for the given date range, ' +
-        'broken down by currency and channel. Use for "revenue this month?", "YoY April?". ' +
-        'Read-only.',
-      inputSchema: GetRevenueInput,
-      execute: async (input): Promise<AgentToolResult<unknown>> => {
-        try {
-          const data = await client.request<unknown>('GET', '/v1/analytics/revenue', {
-            query: { from: input.from, to: input.to },
-          });
-          return { ok: true, data };
-        } catch (err) {
-          return toErrorResult(err);
-        }
-      },
-    }),
-
-    getOccupancyRate: tool({
-      description:
-        'Fetch occupancy rate over the given range — booked nights / available nights, plus ' +
-        'per-listing breakdown. Read-only.',
-      inputSchema: GetOccupancyRateInput,
-      execute: async (input): Promise<AgentToolResult<unknown>> => {
-        try {
-          const data = await client.request<unknown>('GET', '/v1/analytics/occupancy', {
-            query: { from: input.from, to: input.to },
-          });
-          return { ok: true, data };
-        } catch (err) {
-          return toErrorResult(err);
-        }
-      },
-    }),
-
     searchGuests: tool({
       description:
         'Free-text search across the guest CRM (name / email / phone). Returns matching guests ' +
@@ -210,23 +132,6 @@ export function repullAgentTools(client: RepullClient): AgentToolSet {
         try {
           const data = await client.request<unknown>('GET', '/v1/guests', {
             query: { q: input.query, ...(input.limit ? { limit: input.limit } : {}) },
-          });
-          return { ok: true, data };
-        } catch (err) {
-          return toErrorResult(err);
-        }
-      },
-    }),
-
-    getCleaningRota: tool({
-      description:
-        'Fetch the cleaning rota for a single date — listings needing turnover, assigned ' +
-        'cleaner, status (scheduled / in-progress / done), notes. Read-only.',
-      inputSchema: GetCleaningRotaInput,
-      execute: async (input): Promise<AgentToolResult<unknown>> => {
-        try {
-          const data = await client.request<unknown>('GET', '/v1/cleaning/rota', {
-            query: { date: input.date },
           });
           return { ok: true, data };
         } catch (err) {
