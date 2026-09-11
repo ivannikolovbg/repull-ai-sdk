@@ -2,6 +2,30 @@
 
 ## 0.2.4 — 2026-09-11
 
+### Removed
+
+- **`projectId` / `REPULL_PROJECT_ID` attribution is gone with the rest of the
+  quota-and-usage client.** `0.2.3` removed `src/agent/quota-client.ts`
+  because `GET /v1/agent/quota` and `POST /v1/agent/usage` both 404 against
+  the live API. A separate change had meanwhile added a `projectId` option
+  that tagged the `/v1/agent/usage` body with `project_id` for the
+  dashboard's per-project rollup — it rides on the same dead endpoint, so it
+  never recorded anything in production, and it is removed here along with
+  its test. Breaking for anyone passing `projectId` or setting
+  `REPULL_PROJECT_ID`; no working integration is affected, because the
+  endpoint the value was sent to does not exist.
+
+  Re-verified at the time of writing:
+
+  ```
+  GET  https://api.repull.dev/v1/agent/quota  -> 404
+  POST https://api.repull.dev/v1/agent/usage  -> 404
+  GET  https://api.repull.dev/v1/health       -> 200
+  ```
+
+  If per-project agent attribution is still wanted, the endpoint has to ship
+  on the API first; the guard will then stop rejecting the path.
+
 ### Changed
 
 - **Spec-freshness guard now compares schema shapes, not just endpoints.**
