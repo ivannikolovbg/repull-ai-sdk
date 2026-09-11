@@ -1,0 +1,34 @@
+name: Spec freshness
+
+# This SDK is hand-written and has no generated OpenAPI snapshot, so the guard
+# runs in `source` mode: it scans src/ for hardcoded "/v1/..." request paths and
+# fails if any of them is absent from the live spec at
+# https://api.repull.dev/openapi.json.
+#
+# One direction only -- a hand-written SDK is not obliged to wrap every
+# endpoint, but it must never ship a call to an endpoint that does not exist.
+# This repo previously shipped six agent tools against /v1/market/context,
+# /v1/analytics/revenue, /v1/analytics/occupancy, /v1/cleaning/rota,
+# /v1/agent/quota and /v1/agent/usage -- all six returned 404 in production and
+# nothing caught it.
+#
+# The `schedule` trigger catches the case where the API removes an endpoint
+# this SDK still calls, without anyone touching this repo.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    # daily, 06:17 UTC
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+
+jobs:
+  spec-freshness:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # python3 is preinstalled on ubuntu-latest and the script is stdlib-only.
+      - name: Check every /v1/ path referenced in source exists in the live API
+        run: python3 scripts/check-spec-freshness.py --mode source --source-dir src
