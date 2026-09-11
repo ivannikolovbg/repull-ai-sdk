@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.2.4 — 2026-09-11
+
+### Changed
+
+- **Spec-freshness guard now compares schema shapes, not just endpoints.**
+  Nineteen schema corrections shipped on the live API — ten fields renamed
+  from `snake_case` to `camelCase` (`data_freshness` → `dataFreshness`,
+  `last_synced_at` → `lastSyncedAt`, `fix_url` → `fixUrl`, `next_cursor` →
+  `nextCursor`, `has_more` → `hasMore`, `monthly_requests` →
+  `monthlyRequests`, `daily_ai_requests` → `dailyAiRequests`, `daily_ai` →
+  `dailyAi`, `dynamic_pricing_listings` → `dynamicPricingListings`,
+  `resets_at` → `resetsAt`), three list responses that are bare arrays
+  rather than `{data, pagination}` objects, four ids that are strings
+  rather than integers, and `latitude`/`longitude` likewise — and not one
+  path or method moved, so the old endpoint-only check stayed green
+  through all of it. The guard now fingerprints every property name,
+  type and `required` entry as well.
+
+  No runtime change in this package: it is hand-written, passes API
+  responses through to the model untouched, and declares no types for any
+  of the corrected fields. Verified by grep — none of the ten renamed
+  field names, the three list-response wrappers, or `latitude`/`longitude`
+  appear anywhere in `src/`.
+
 ## 0.2.3 — 2026-09-11
 
 ### Removed
