@@ -5,7 +5,7 @@
  * IMPORTANT: this is the ONLY customer the fixture runner knows about.
  * No real PII. Anything that looks like a phone number or email is
  * synthesised. Per CLAUDE.md the demo customer ID is 1, NEVER 10 (which
- * is a real paying customer in the production Vanio system).
+ * is a real paying customer).
  */
 
 export interface FixtureGuest {

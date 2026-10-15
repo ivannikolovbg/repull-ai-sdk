@@ -3,7 +3,7 @@ import type { AgentOutput, CheckResult, LanguageTag, PromptItem } from "../types
 /**
  * Language-match check.
  *
- * The vanio-agent eval suite (vanio repo, tier 2) discovered that prompt
+ * Our agent eval suite found that prompt
  * tweaks regularly cause the agent to answer in the wrong language — a
  * Spanish-speaking property manager asks "¿cuántas reservas tengo hoy?"
  * and gets an English reply. We catch that here.
