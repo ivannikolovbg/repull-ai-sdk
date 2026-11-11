@@ -1,6 +1,6 @@
 # @repull/ai-sdk
 
-Vercel AI SDK tool bindings for the [Repull](https://repull.dev) API.
+Vercel AI SDK tool bindings for the [Repull](https://repull.dev) API — one API for Airbnb, Booking.com, Vrbo and more channels, plus 15 PMS platforms.
 
 Drop these tools into any `streamText` / `generateText` call (or any AI SDK Tool agent) and your model gets live, typed access to the Repull platform — properties, reservations, Airbnb listings, and the Connect-session flow that wires up new providers.
 

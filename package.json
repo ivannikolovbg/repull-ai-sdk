@@ -1,7 +1,7 @@
 {
   "name": "@repull/ai-sdk",
   "version": "0.2.4",
-  "description": "Vercel AI SDK tool bindings + embedded <RepullAgent /> chat widget for the Repull API.",
+  "description": "Vercel AI SDK tool bindings + embedded <RepullAgent /> chat widget for the Repull API — Airbnb, Booking.com, Vrbo and 15 PMS platforms through one key.",
   "license": "MIT",
   "author": "Repull",
   "homepage": "https://repull.dev",
